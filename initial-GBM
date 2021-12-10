@@ -1,0 +1,107 @@
+import joblib
+import keras
+import pandas as pd
+import CTCN_MODEL_TRAIN.Read_DataSet
+import numpy as np
+from keras.utils import np_utils
+from keras.layers import Dense, Dropout, Input
+from keras.layers.recurrent import LSTM
+from keras.layers import LeakyReLU
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import pickle
+from keras import Input, Model
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+
+from keras.layers import Conv1D, LeakyReLU, add, Activation, Flatten, Dense, Dropout
+import lightgbm as lgb
+from timeit import default_timer as timer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from keras.optimizers import adam_v2
+
+def Read_Excel():
+    p_num = 76
+    p_tnum = 85
+    p_length = 118
+
+    data_A = CTCN_MODEL_TRAIN.Read_DataSet.get_data('dataset.xlsx', 'Sheet1')
+    data_A = MinMaxScaler().fit_transform(data_A)
+    label_A = CTCN_MODEL_TRAIN.Read_DataSet.get_data('dataset.xlsx', 'Sheet1',9)
+
+    dataset_split = p_num * p_length
+    # 模型训练集数目和标签 Model training dataset number and labels
+    train_data = data_A[:dataset_split - 1]
+    train_label = label_A[:dataset_split - 1]
+
+    # 模型测试集中某118个连续数据项和标签   The  118 continuous data items and labels in the model test dataset
+    test_data = data_A[dataset_split:p_length * p_tnum]
+    test_label = label_A[dataset_split:len(data_A)]
+
+    train_data = train_data.reshape(-1, 1, 9)
+    test_data = test_data.reshape(-1, 1, 9)
+    return train_data, test_data, train_label, test_label
+
+
+optimizer = adam_v2.Adam(0.0002, 0.5)
+
+def LightGBM():
+    train_data, test_data, train_label, test_label = Read_Excel()
+    LightGBM = lgb.LGBMRegressor(n_estimators= 500, metric='mse',learning_rate=0.1,max_depth=6, bagging_fraction = 0.5,feature_fraction = 0.9)
+    LightGBM.fit(train_data,train_label)
+    start = timer()
+    Predict_data = LightGBM.predict(test_data)
+    end1 = timer()
+    RMSE = RMSE_Model(Predict_data, test_label)
+    MAE = MAE_Model(Predict_data, test_label)
+    # NSE = NSE_Model(Predict_data, test_label)
+
+    R2 =r2_score(Predict_data, test_label)
+    print("RMSE",RMSE,"MAE",MAE,"R2",R2,'time', end1-start)
+
+    show_picture(test_label, Predict_data)
+
+def show_picture(test_label, Prediction_data):
+    plt.figure()
+    # 1*1 的网络，第一幅子图
+    plt.plot(range(len(test_label)),test_label, linestyle='-',  color='r', linewidth=1,marker='o',markersize=3,  label="Actual_data")
+    plt.plot(range(len(Prediction_data)),Prediction_data,linestyle='-',  color='b', linewidth=1,marker='o',markersize=3,  label="Prediction_data")
+    plt.show()
+
+def RMSE_Model(Prediction_data, test_label):
+
+    rmse = np.sqrt(mean_squared_error(Prediction_data, test_label))
+    return rmse
+
+def MAE_Model(Prediction_data, test_label):
+    # error = []
+    # for i in range(len(Prediction_data)):
+    #     error.append(abs(Prediction_data[i] - test_label[i]))
+
+    # mae = np.average(np.abs(Prediction_data - test_label))
+    mae = mean_absolute_error(Prediction_data,test_label)
+    return mae
+
+
+
+
+# def show_train_history(train_history, train, validation):
+#     plt.plot(train_history.history[train])
+#     plt.plot(train_history.history[validation])
+#     plt.title('Train_history')
+#     plt.ylabel(train)
+#     plt.yscale('log')
+#     plt.xlabel('Epoch')
+#     plt.legend(['train', 'validation'], loc = 'upper left')
+#     plt.show()
+
+
+# show_train_history(train_history, 'loss', 'val_loss')
+
+
+
+
+
+if __name__ == '__main__':
+    LightGBM()
