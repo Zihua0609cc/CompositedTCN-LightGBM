@@ -25,9 +25,9 @@ def Read_Excel():
     p_tnum = 85
     p_length = 118
     
-    data_A = CTCN_MODEL_TRAIN.Read_DataSet.get_data('G:\博士小论文写作\智能装车协控系统--论文3\Myinitial_dataset1.xlsx', 'Sheet4')
+    data_A = CTCN_MODEL_TRAIN.Read_DataSet.get_data('dataset.xlsx', 'Sheet1')
     data_A = MinMaxScaler().fit_transform(data_A)
-    label_A = CTCN_MODEL_TRAIN.Read_DataSet.get_label('G:\博士小论文写作\智能装车协控系统--论文3\Myinitial_dataset1.xlsx', 'Sheet4',9)
+    label_A = CTCN_MODEL_TRAIN.Read_DataSet.get_label('dataset.xlsx', 'Sheet1',9)
 
     dataset_split = p_num * p_length
     # 模型训练集数目和标签 Model training dataset number and labels
