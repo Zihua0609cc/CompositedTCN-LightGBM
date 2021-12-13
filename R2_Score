@@ -1,0 +1,42 @@
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+from scipy.optimize import curve_fit
+from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler
+
+import Read_DataSet
+
+data=[]
+
+actual = Read_DataSet.get_label('XXX', 'Sheet1', 0)
+
+predict = Read_DataSet.get_label('XXX', 'Sheet1', 6)
+
+# data = pd.read_csv(path, encoding='UTF-8')
+
+actual = MaxAbsScaler().fit_transform(actual)
+predict = MaxAbsScaler().fit_transform(predict)
+actual = actual.flatten()
+predict = predict.flatten()
+
+
+x_mean = np.mean(actual)
+y_mean = np.mean(predict)
+
+xy_mean = np.mean(actual*predict)
+xx_mean = np.mean(actual*actual)
+yy_mean = np.mean(predict*predict)
+
+a = (x_mean*y_mean - xy_mean)/(x_mean**2-xx_mean)
+b = y_mean - a*x_mean
+f = a*actual+b
+
+sst = sum((predict - y_mean)**2)
+ssr = sum((f - y_mean)**2)
+r2 = ssr/sst
+
+
+print(a,b,r2)
+
