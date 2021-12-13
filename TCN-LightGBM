@@ -69,7 +69,7 @@ def ResBlock(x,filters,kernel_size,dilation_rate):
 
 def TCN_PREDICTION():
 
-    # STCN 特征提取
+    # TCN 特征提取
     inputs = Input(shape=(1, 9))
     x = ResBlock(inputs, filters=128, kernel_size=2, dilation_rate=1)
     x = ResBlock(x, filters=64, kernel_size=2, dilation_rate=2)
@@ -87,6 +87,7 @@ def TCN_PREDICTION():
     # print(model.summary())
     # model.fit(train_data, train_label, validation_split=0.1, epochs=500, batch_size=50, verbose=2)
     # model.save('D:/Pthird_nn/My_TCN_GBDT_Dataset/' + 'TCN_PREDICTION_Model.h5')
+    
 def LIGHT_GBM(train_features, train_labels):
     Light_GBM = lgb.LGBMRegressor(n_estimators= 500, metric='mse',learning_rate=0.1,max_depth=6, bagging_fraction = 0.5,feature_fraction = 0.9)
     Light_GBM.fit(train_features, train_labels)
