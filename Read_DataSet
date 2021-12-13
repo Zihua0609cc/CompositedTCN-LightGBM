@@ -1,0 +1,28 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
+import xlrd
+
+def get_data(path,sheet_num):
+    get_data_set = xlrd.open_workbook(path)
+    sheet_x = get_data_set.sheet_by_name(sheet_num)
+    nrows = sheet_x.nrows
+    data_ss = np.zeros((nrows,9),dtype=float)
+    for i in range(0, nrows):
+     for j in range(0, 9):
+         data_ss[i, j] = sheet_x.cell(i, j).value
+    data_ss = MinMaxScaler().fit_transform(data_ss)
+    return data_ss
+
+
+def get_label(path,sheet_num,colnum):
+    get_data_set=xlrd.open_workbook(path)
+    label_x=get_data_set.sheet_by_name(sheet_num)
+    norws = label_x.nrows
+    label_ss=np.zeros((norws,1),dtype=float)
+    for i in range(0, norws):
+      label_ss[i, 0] = label_x.cell(i, colnum).value
+    # label_ss = MinMaxScaler().fit_transform(label_ss)
+    return label_ss
