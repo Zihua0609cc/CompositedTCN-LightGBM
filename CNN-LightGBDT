@@ -1,0 +1,129 @@
+from tensorflow.python.keras.layers import BatchNormalization
+import lightgbm as lgb
+
+import CTCN_MODEL_TRAIN.Read_DataSet
+from keras import Input, Model
+import matplotlib.pyplot as plt
+import  os
+from keras.optimizers import adam_v2
+from keras.layers import Conv1D, LeakyReLU, add, Activation, Flatten, Dense, Dropout
+
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import numpy as np
+
+from timeit import default_timer as timer
+
+
+# 读取数据集数据 Read the data in dataset file
+def Read_Excel():
+    p_num = 76
+    p_tnum = 85
+    p_length = 118
+
+    data_A = CTCN_MODEL_TRAIN.Read_DataSet.get_data('dataset1.xlsx', 'Sheet4')
+    data_A = MinMaxScaler().fit_transform(data_A)
+    label_A = CTCN_MODEL_TRAIN.Read_DataSet.get_label('dataset1.xlsx', 'Sheet4',9)
+
+    dataset_split = p_num * p_length
+    #模型训练集数目和标签 Model training dataset number and labels
+    train_data=data_A[:dataset_split-1]
+    train_label=label_A[:dataset_split-1]
+
+    # 模型测试集中某118个连续数据项和标签   The  118 continuous data items and labels in the model test dataset
+    test_data = data_A[dataset_split:p_length * p_tnum]
+    test_label = label_A[dataset_split:len(data_A)]
+
+    train_data = train_data.reshape(-1,1,9)
+    test_data = test_data.reshape(-1,1,9)
+    return train_data, test_data, train_label,test_label
+
+optimizer = adam_v2.Adam(0.0002, 0.5)
+
+def CNN_PREDICTION():
+    inputs = Input(shape=(1, 9))
+    r = Conv1D( filters =128, kernel_size= 3,activation='relu',padding='same')(inputs)
+    r = Dropout(rate=0.15)(r)
+    r = Conv1D(filters=64, kernel_size=3, activation='relu', padding='same')(r)
+    r = Dropout(rate=0.15)(r)
+    r = Flatten()(r)
+    outputs = Dense(units=16)(r)
+
+    return Model(inputs, outputs)
+
+
+    # print(model.summary())
+    # model.fit(train_data, train_label, validation_split=0.1, epochs=500, batch_size=50, verbose=2)
+    # model.save('D:/Pthird_nn/My_TCN_GBDT_Dataset/' + 'TCN_PREDICTION_Model.h5')
+def LIGHT_GBM(train_features, train_labels):
+    Light_GBM = lgb.LGBMRegressor(n_estimators= 500, metric='mse',learning_rate=0.1,max_depth=6, bagging_fraction = 0.5,feature_fraction = 0.9)
+    Light_GBM.fit(train_features, train_labels)
+    return Light_GBM
+
+def show_picture(test_label, Prediction_data):
+    plt.figure()
+    # 1*1 的网络，第一幅子图
+    plt.plot(range(len(test_label)),test_label, linestyle='-',  color='r', linewidth=1,marker='o',markersize=3,  label="Actual_data")
+    plt.plot(range(len(Prediction_data)),Prediction_data,linestyle='-',  color='b', linewidth=1,marker='o',markersize=3,  label="Prediction_data")
+    plt.show()
+
+# RMSE metrics function
+def RMSE_Model(Prediction_data, test_label):
+
+    rmse = np.sqrt(mean_squared_error(Prediction_data, test_label))
+    return rmse
+#MAE metrics function
+def MAE_Model(Prediction_data, test_label):
+
+    mae = mean_absolute_error(Prediction_data,test_label)
+    return mae
+
+
+
+# 保存数据
+def SAVEDATA_CSV(test_label, Prediction_data):
+    df = pd.DataFrame()
+    df['label'] = test_label
+    df['Prediction'] = Prediction_data
+    df.to_csv("C:\\Users\\ChenZihua\\Desktop\\1.csv",header=None,index=None)
+
+
+
+#模型主体预测
+#模型主体预测
+train_data, test_data, train_label, test_label= Read_Excel()
+CNN_Extracted = CNN_PREDICTION()
+CNN_Extracted.compile(loss='mse', optimizer=optimizer)
+train_history = CNN_Extracted.fit(train_data, train_label, validation_split=0.1, epochs=500, batch_size=50, verbose=2)
+# CNN_Extracted.save('D:/Pthird_nn/My_TCN_GBDT_Dataset/' + 'CNN_PREDICTION_Model.h5')
+# TCN_Extracted = load_model('D:/Pthird_nn/My_TCN_GBDT_Dataset/CNN_PREDICTION_Model.h5')
+Features_Data_1 = TCN_Extracted.predict(train_data)
+start = timer()
+Features_Data_2 = TCN_Extracted.predict(test_data)
+end1 = timer()
+Light_gbm = LIGHT_GBM(Features_Data_1, train_label)
+end2 = timer()
+Final_Prediction = Light_gbm.predict(Features_Data_2)
+end3 = timer()
+
+print(Final_Prediction.shape)
+RMSE = RMSE_Model(Final_Prediction, test_label)
+MAE = MAE_Model(Final_Prediction, test_label)
+# NSE = NSE_Model(Final_Prediction, test_label)
+R2 = r2_score(Final_Prediction, test_label)
+print("RMSE", RMSE, "MAE", MAE,"R2", R2)
+SAVEDATA_CSV(test_label.ravel(),Final_Prediction)
+print(end3-start-(end2-end1))
+# show_picture(test_label, Final_Prediction)
+
+
+
+#def show_train_history(train_history, train, validation):
+    plt.plot(train_history.history[train])
+    plt.plot(train_history.history[validation])
+    plt.title('Train_history')
+    plt.ylabel(train)
+    plt.yscale('log')
+    plt.xlabel('Epoch')
+    plt.legend(['train', 'validation'], loc = 'upper left')
+    plt.show()
