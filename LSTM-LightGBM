@@ -1,0 +1,116 @@
+from tensorflow.python.keras.layers import BatchNormalization
+import lightgbm as lgb
+
+import CTCN_MODEL_TRAIN.Read_DataSet
+from keras import Input, Model
+import matplotlib.pyplot as plt
+import  os
+from keras.optimizers import adam_v2
+from keras.layers import Conv1D, LeakyReLU, add, Activation, Flatten, Dense, Dropout
+
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import numpy as np
+
+from timeit import default_timer as timer
+
+
+# 读取数据集数据 Read the data in dataset file
+def Read_Excel():
+    p_num = 76
+    p_tnum = 85
+    p_length = 118
+
+    data_A = CTCN_MODEL_TRAIN.Read_DataSet.get_data('D:\博士小论文写作\智能装车协控系统--论文3\Myinitial_dataset1.xlsx', 'Sheet4')
+    data_A = MinMaxScaler().fit_transform(data_A)
+    label_A = CTCN_MODEL_TRAIN.Read_DataSet.get_label('D:\博士小论文写作\智能装车协控系统--论文3\Myinitial_dataset1.xlsx', 'Sheet4',9)
+
+    dataset_split = p_num * p_length
+    #模型训练集数目和标签 Model training dataset number and labels
+    train_data=data_A[:dataset_split-1]
+    train_label=label_A[:dataset_split-1]
+
+    # 模型测试集中某118个连续数据项和标签   The  118 continuous data items and labels in the model test dataset
+    test_data = data_A[dataset_split:p_length * p_tnum]
+    test_label = label_A[dataset_split:len(data_A)]
+
+    train_data = train_data.reshape(-1,1,9)
+    test_data = test_data.reshape(-1,1,9)
+    return train_data, test_data, train_label,test_label
+
+optimizer = adam_v2.Adam(0.0002, 0.5)
+
+
+def LSTM_PREDICTION():
+    inputs = Input(shape=(1, 9))
+    r = LSTM(units=64, input_shape=(1, 9), return_sequences=True)(inputs)
+    r = LSTM(units=64, return_sequences=True)(r)
+    r = LSTM(units=32, return_sequences=True)(r)
+    r = LSTM(units=32, return_sequences=False)(r)
+    r = Dropout(rate=0.15)(r)
+    r = Dense(16)(r)
+    outputs = Dense(units=16)(r)
+    return Model(inputs, outputs)
+
+    # print(model.summary())
+ 
+def LIGHT_GBM(train_features, train_labels):
+    Light_GBM = lgb.LGBMRegressor(n_estimators= 500, metric='mse',learning_rate=0.1,max_depth=6, bagging_fraction = 0.5,feature_fraction = 0.9)
+    Light_GBM.fit(train_features, train_labels)
+    return Light_GBM
+
+def show_picture(test_label, Prediction_data):
+    plt.figure()
+    # 1*1 的网络，第一幅子图
+    plt.plot(range(len(test_label)),test_label, linestyle='-',  color='r', linewidth=1,marker='o',markersize=3,  label="Actual_data")
+    plt.plot(range(len(Prediction_data)),Prediction_data,linestyle='-',  color='b', linewidth=1,marker='o',markersize=3,  label="Prediction_data")
+    plt.show()
+  
+#模型主体预测
+train_data, test_data, train_label, test_label= Read_Excel()
+LSTM_Extracted = LSTM_PREDICTION()
+LSTM_Extracted.compile(loss='mse', optimizer=optimizer)
+#118个样本训练一次,与118个连续装载数据匹配 118 samples are trained once, match with 118 consecutive loading data
+train_history = LSTM_Extracted.fit(train_data, train_label, validation_split=0.01, epochs=500, batch_size= 118, verbose=2)
+
+#Model 存储  Model save
+# LSTM_Extracted.save('D:/Pthird_nn/My_TCN_GBDT_Dataset/' + 'TCN_PREDICTION_1_Model.h5')
+# LSTM_Extracted = load_model('D:/Pthird_nn/My_TCN_GBDT_Dataset/TCN_PREDICTION_1_Model.h5')
+
+Features_Data_1 = TCN_Extracted.predict(train_data)
+start = timer()
+Features_Data_2 = TCN_Extracted.predict(test_data)
+end1 = timer()
+Light_gbm = LIGHT_GBM(Features_Data_1, train_label)
+end2 = timer()
+Final_Prediction = Light_gbm.predict(Features_Data_2)
+end3 = timer()
+
+# RMSE metrics function
+RMSE = RMSE_Model(Final_Prediction, test_label)
+# MAE metrics function
+MAE = MAE_Model(Final_Prediction, test_label)
+
+#r2_score metrics
+R2 = r2_score(Final_Prediction, test_label)
+print("RMSE", RMSE, "MAE", MAE,"R2", R2)
+
+# 计算运算时间 Calculate the computational time
+print(end3-start-(end2-end1))
+show_picture(test_label, Final_Prediction)
+
+
+
+# def show_train_history(train_history, train, validation):
+#     plt.plot(train_history.history[train])
+#     plt.plot(train_history.history[validation])
+#     plt.title('Train_history')
+#     plt.ylabel(train)
+#     plt.yscale('log')
+#     plt.xlabel('Epoch')
+#     plt.legend(['train', 'validation'], loc = 'upper left')
+#     plt.show()
+
+
+# show_train_history(train_history, 'loss', 'val_loss')  
+    
